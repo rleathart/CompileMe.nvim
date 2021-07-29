@@ -83,7 +83,19 @@ M.compile = function ()
   cmake.args = {'cmake', '--build', buildDir}
   cmake.working_directory = workingDirectory
 
-  return Task{cmake}
+  local configure
+  if vim.fn.isdirectory(workingDirectory .. '/' .. buildDir) ~= 1 then
+    configure = Command{
+      args = {'cmake', '-B', buildDir},
+      working_directory = workingDirectory
+    }
+  end
+
+  if configure then
+    return Task{configure, cmake}
+  else
+    return Task{cmake}
+  end
 end
 
 M.run = function ()
