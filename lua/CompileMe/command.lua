@@ -39,7 +39,7 @@ function Command:escape_args(shell)
       escaped_args[i] = vim.fn.shellescape(arg)
       -- Need this so pwsh doesn't think we're passing options to a string literal
       if (shell:match('pwsh') or shell:match('powershell')) and i == 1 then
-        escaped_args[1] = '&' .. self.args[1]
+        escaped_args[1] = '&' .. escaped_args[1]
       end
     else
       escaped_args[i] = arg
