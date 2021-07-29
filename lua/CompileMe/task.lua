@@ -80,7 +80,7 @@ function Task:run()
       vim.cmd(table.concat(cmd.args, ' '))
       vim.cmd("silent! lcd -")
     else
-      cmd:escape_args(shell)
+      local escaped_args = cmd:escape_args(shell)
 
       local cmd_string = ""
 
@@ -92,12 +92,12 @@ function Task:run()
         if cmd.working_directory then
           cd_str = string.format('cd %s', vim.fn.shellescape(cmd.working_directory))
         end
-        cmd_string = cmd_join(cd_str, string.format("%s", table.concat(cmd.args, " ")), true)
+        cmd_string = cmd_join(cd_str, string.format("%s", table.concat(escaped_args, " ")), true)
         table.insert(chansend_cmd_strs, cmd_string)
       else -- Going to use vim shell (:!)
         vim.cmd(string.format("silent! lcd %s", vim.fn.fnameescape(cmd.working_directory or ".")))
         -- Need to escape ! for vim shell
-        vim.cmd('!'..table.concat(cmd.args, " "):gsub('!', '\\!'))
+        vim.cmd('!'..table.concat(escaped_args, " "):gsub('!', '\\!'))
         vim.cmd("silent! lcd -")
         if vim.v.shell_error ~= 0 then
           break

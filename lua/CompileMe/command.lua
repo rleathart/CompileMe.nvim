@@ -13,14 +13,15 @@ local Command = class(function (cmd, opts)
   opts = opts or {}
   cmd.args = opts.args or {}
   cmd.working_directory = opts.working_directory
-  cmd.silent = opts.silent or false
   cmd.is_vim_command = opts.is_vim_command or false
   -- @@Implement fail_is_fatal. We might not care if some commands fail
+  -- @@Implement silent. We might want to run some commands silently
 end)
 
 -- @param shell string|nil 'pwsh' or 'powershell' or nil
 function Command:escape_args(shell)
   shell = shell or ""
+  local escaped_args = {}
   for i, arg in pairs(self.args) do
     local needs_escape = true
 
@@ -35,13 +36,16 @@ function Command:escape_args(shell)
     end
 
     if needs_escape then -- Don't quote options
-      self.args[i] = vim.fn.shellescape(arg)
+      escaped_args[i] = vim.fn.shellescape(arg)
       -- Need this so pwsh doesn't think we're passing options to a string literal
       if (shell:match('pwsh') or shell:match('powershell')) and i == 1 then
-        self.args[1] = '&' .. self.args[1]
+        escaped_args[1] = '&' .. self.args[1]
       end
+    else
+      escaped_args[i] = arg
     end
   end
+  return escaped_args
 end
 
 return Command

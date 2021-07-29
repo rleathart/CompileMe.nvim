@@ -8,9 +8,12 @@ augroup END
 function s:command_wrapper(dothis)
   if a:dothis == "run"
     lua require('CompileMe.project').get_current():run()
+    return
   endif
+
   if a:dothis == "compile_and_run"
     lua require('CompileMe.project').get_current():compile_and_run()
+    return
   endif
 
   lua require('CompileMe.project').get_current():compile()
