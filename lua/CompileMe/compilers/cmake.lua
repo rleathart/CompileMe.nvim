@@ -107,9 +107,7 @@ M.run = function ()
 
   local task = Task()
 
-  if not executables then return task end
-
-  if #executables > 0 then
+  if executables and #executables > 0 then
     for _, exe in pairs(executables) do
       local cmd = Command()
       cmd.args = {exe}
