@@ -30,7 +30,7 @@ function Command:escape_args(shell)
     end
 
     for _, builtin in ipairs(cmd_builtins) do
-      if arg:upper():match(builtin) and i == 1 then
+      if arg:upper() == builtin and i == 1 then
         needs_escape = false
       end
     end
