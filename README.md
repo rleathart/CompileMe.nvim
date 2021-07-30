@@ -14,6 +14,11 @@ Tested with
 
 <!-- Have some demo vids here -->
 
+# Requirements
+
+- Neovim 0.5 or above
+- [neovim-remote](https://github.com/mhinz/neovim-remote)
+
 # Extending CompileMe
 
 This plugin is designed to be extensible so you can add your own compilers and
