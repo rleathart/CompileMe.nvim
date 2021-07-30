@@ -5,22 +5,8 @@ augroup CompileMe
   au VimEnter,BufWinEnter * lua require('CompileMe.project').init()
 augroup END
 
-function s:command_wrapper(dothis)
-  if a:dothis == "run"
-    lua require('CompileMe.project').get_current():run()
-    return
-  endif
-
-  if a:dothis == "compile_and_run"
-    lua require('CompileMe.project').get_current():compile_and_run()
-    return
-  endif
-
-  lua require('CompileMe.project').get_current():compile()
-endfunction
-
 function s:command_completion(A, L, P)
-  return ["compile", "run", "compile_and_run"]
+  return luaeval("require('CompileMe').get_commands()")
 endfunction
 
-command! -complete=customlist,s:command_completion -nargs=? CompileMe call s:command_wrapper("<args>")
+command! -complete=customlist,s:command_completion -nargs=? CompileMe lua require('CompileMe').command_wrapper("<args>")
