@@ -4,53 +4,62 @@ local upfind = require 'CompileMe.upfind'
 
 local M = {}
 
-M.wait_for_api_reply = function ()
-  local cmakeListsPath = upfind('CMakeLists.txt')[1]
-  local cmakeBuildDir = vim.b.CMakeBuildDir or 'build'
-  local cmakeAPIDir = vim.fn.fnamemodify(
-  cmakeListsPath, ':p:h') .. '/' .. cmakeBuildDir .. '/.cmake/api/v1'
+local function dirname(x)
+  return vim.fn.fnamemodify(x, ':h')
+end
 
-  while vim.fn.isdirectory(cmakeAPIDir .. '/reply') ~= 1 do
+M.get_top_level_cmakelists = function ()
+  local lists = upfind('CMakeLists.txt')
+  return lists[#lists]
+end
+
+M.wait_for_api_reply = function ()
+  local cmakelists_path = M.get_top_level_cmakelists()
+  local cmake_build_dir = vim.b.CMakeBuildDir or 'build'
+  local cmake_api_dir = vim.fn.fnamemodify(
+  cmakelists_path, ':p:h') .. '/' .. cmake_build_dir .. '/.cmake/api/v1'
+
+  while vim.fn.isdirectory(cmake_api_dir .. '/reply') ~= 1 do
     vim.cmd('sleep 100m')
   end
 end
 
-M.cmakeWriteQuery = function(query)
-  local cmakeListsPath = upfind('CMakeLists.txt')[1]
-  local cmakeBuildDir = vim.b.CMakeBuildDir or 'build'
-  local cmakeAPIDir = vim.fn.fnamemodify(
-  cmakeListsPath, ':p:h') .. '/' .. cmakeBuildDir .. '/.cmake/api/v1'
+M.cmake_write_query = function(query)
+  local cmakelists_path = M.get_top_level_cmakelists()
+  local cmake_build_dir = vim.b.CMakeBuildDir or 'build'
+  local cmake_api_dir = vim.fn.fnamemodify(
+  cmakelists_path, ':p:h') .. '/' .. cmake_build_dir .. '/.cmake/api/v1'
 
-  vim.fn.mkdir(cmakeAPIDir .. '/query/client-nvim', 'p')
+  vim.fn.mkdir(cmake_api_dir .. '/query/client-nvim', 'p')
 
-  local file = io.open(cmakeAPIDir .. '/query/client-nvim/query.json', 'w')
+  local file = io.open(cmake_api_dir .. '/query/client-nvim/query.json', 'w')
   file:write(vim.fn.json_encode(query))
   file:close()
 end
 
 M.get_executables = function()
-  M.cmakeWriteQuery{
+  M.cmake_write_query{
     requests = {{
       kind = 'codemodel',
       version = 2
     }}
   }
 
-  local cmakeListsPath = upfind('CMakeLists.txt')[1]
-  local cmakeBuildDir = vim.b.CMakeBuildDir or 'build'
+  local cmakelists_path = M.get_top_level_cmakelists()
+  local cmake_build_dir = vim.b.CMakeBuildDir or 'build'
 
-  local cmakeAPIDir = vim.fn.fnamemodify(
-  cmakeListsPath, ':p:h') .. '/' .. cmakeBuildDir .. '/.cmake/api/v1'
+  local cmake_api_dir = vim.fn.fnamemodify(
+  cmakelists_path, ':p:h') .. '/' .. cmake_build_dir .. '/.cmake/api/v1'
 
-  if vim.fn.isdirectory(cmakeAPIDir .. '/reply') ~= 1 then -- Touch cmakelists
-    vim.fn.writefile(vim.fn.readfile(cmakeListsPath), cmakeListsPath)
+  if vim.fn.isdirectory(cmake_api_dir .. '/reply') ~= 1 then -- Touch cmakelists
+    vim.fn.writefile(vim.fn.readfile(cmakelists_path), cmakelists_path)
   end
 
-  local exeList = {}
-  local filesToParse = vim.fn.glob(cmakeAPIDir .. '/reply/target-*', 0, 1)
-  local hasExecutables = false
+  local exe_list = {}
+  local files_to_parse = vim.fn.glob(cmake_api_dir .. '/reply/target-*', 0, 1)
+  local has_executables = false
 
-  for _, file in pairs(filesToParse) do
+  for _, file in pairs(files_to_parse) do
     local fp = io.open(file, 'r')
     local jsonData = {}
     for line in fp:lines() do
@@ -60,45 +69,46 @@ M.get_executables = function()
 
     for _, v in pairs(reply.backtraceGraph.commands) do
       if v == 'add_executable' then
-        hasExecutables = true
+        has_executables = true
         break
       end
     end
 
-    if hasExecutables then
+    if has_executables then
       for _, artifact in pairs(reply.artifacts or {}) do
         if vim.fn.has('win32') > 0 then
           if artifact.path:find('.exe$') then
-            table.insert(exeList, artifact.path)
+            table.insert(exe_list, artifact.path)
           end
         else
-          table.insert(exeList, artifact.path)
+          table.insert(exe_list, artifact.path)
         end
       end
     end
     fp:close()
   end
 
-  if not hasExecutables then return nil end
+  if not has_executables then return nil end
 
-  exeList = vim.fn.map(exeList, function(_, v) return cmakeBuildDir .. '/' .. v end)
-  exeList = vim.fn.filter(exeList, function(_, v) return vim.fn.filereadable(v) end)
+  exe_list = vim.fn.map(exe_list, function(_, v) return cmake_build_dir .. '/' .. v end)
+  exe_list = vim.fn.filter(exe_list, function(_, v) return vim.fn.filereadable(v) end)
 
-  return exeList
+  return exe_list
 end
 
 M.compile = function ()
-  local buildDir = vim.b.CMakeBuildDir or 'build'
-  local workingDirectory = vim.fn.fnamemodify(upfind('CMakeLists.txt')[1], ':h')
+  local cmakelists_path = M.get_top_level_cmakelists()
+  local build_dir = vim.b.CMakeBuildDir or 'build'
+  local working_directory = dirname(cmakelists_path)
   local cmake = Command()
-  cmake.args = {'cmake', '--build', buildDir}
-  cmake.working_directory = workingDirectory
+  cmake.args = {'cmake', '--build', build_dir}
+  cmake.working_directory = working_directory
 
   local configure
-  if vim.fn.isdirectory(workingDirectory .. '/' .. buildDir) ~= 1 then
+  if vim.fn.isdirectory(working_directory .. '/' .. build_dir) ~= 1 then
     configure = Command{
-      args = {'cmake', '-B', buildDir},
-      working_directory = workingDirectory
+      args = {'cmake', '-B', build_dir},
+      working_directory = working_directory
     }
   end
 
@@ -110,8 +120,7 @@ M.compile = function ()
 end
 
 M.run = function ()
-  local lists = upfind('CMakeLists.txt')
-  local workingDirectory = vim.fn.fnamemodify(lists[#lists], ':h')
+  local working_directory = dirname(M.get_top_level_cmakelists())
 
   local executables = M.get_executables()
 
@@ -121,7 +130,7 @@ M.run = function ()
     for _, exe in pairs(executables) do
       local cmd = Command()
       cmd.args = {exe}
-      cmd.working_directory = workingDirectory
+      cmd.working_directory = working_directory
       table.insert(task.commands, cmd)
     end
   else
