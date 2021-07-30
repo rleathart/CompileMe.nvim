@@ -4,6 +4,17 @@ local upfind = require 'CompileMe.upfind'
 
 local M = {}
 
+M.wait_for_api_reply = function ()
+  local cmakeListsPath = upfind('CMakeLists.txt')[1]
+  local cmakeBuildDir = vim.b.CMakeBuildDir or 'build'
+  local cmakeAPIDir = vim.fn.fnamemodify(
+  cmakeListsPath, ':p:h') .. '/' .. cmakeBuildDir .. '/.cmake/api/v1'
+
+  while vim.fn.isdirectory(cmakeAPIDir .. '/reply') ~= 1 do
+    vim.cmd('sleep 100m')
+  end
+end
+
 M.cmakeWriteQuery = function(query)
   local cmakeListsPath = upfind('CMakeLists.txt')[1]
   local cmakeBuildDir = vim.b.CMakeBuildDir or 'build'
@@ -31,7 +42,7 @@ M.get_executables = function()
   local cmakeAPIDir = vim.fn.fnamemodify(
   cmakeListsPath, ':p:h') .. '/' .. cmakeBuildDir .. '/.cmake/api/v1'
 
-  if not vim.fn.isdirectory(cmakeAPIDir .. '/reply') then -- Touch cmakelists
+  if vim.fn.isdirectory(cmakeAPIDir .. '/reply') ~= 1 then -- Touch cmakelists
     vim.fn.writefile(vim.fn.readfile(cmakeListsPath), cmakeListsPath)
   end
 
@@ -99,7 +110,6 @@ M.compile = function ()
 end
 
 M.run = function ()
-  local buildDir = vim.b.CMakeBuildDir or 'build'
   local lists = upfind('CMakeLists.txt')
   local workingDirectory = vim.fn.fnamemodify(lists[#lists], ':h')
 
@@ -115,13 +125,19 @@ M.run = function ()
       table.insert(task.commands, cmd)
     end
   else
-    local cmd = Command()
-    cmd.args = { 'cmake', '-B', buildDir }
-    cmd.working_directory = workingDirectory
-    task.commands = { cmd }
+    task.commands = {
+      Command{
+        is_vim_command = true,
+        args = {'lua', 'require(\'CompileMe.project\').get_current().compiler.wait_for_api_reply()'}
+      },
+      Command{
+        is_vim_command = true,
+        args = {'CompileMe', 'run'}
+      }
+    }
   end
 
-  return task
+return task
 end
 
 M.compile_and_run = function ()

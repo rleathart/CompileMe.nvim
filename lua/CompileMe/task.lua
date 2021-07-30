@@ -71,30 +71,47 @@ function Task:run()
     return string.format("%s%s", cmd1, string.format(fmt, cmd2))
   end
 
+  -- NOTE: strings passed to this should use single quotes for internal quoting
+  local function wrap_vim_cmd_for_shell(cmd)
+    return string.format('nvr -c %s', vim.fn.shellescape(cmd))
+  end
+
   for _, cmd in ipairs(self.commands) do
     if #cmd.args == 0 then -- Skip commands with no args
       goto continue
     end
-    if cmd.is_vim_command then
-      vim.cmd(string.format("silent! lcd %s", vim.fn.fnameescape(cmd.working_directory or ".")))
-      vim.cmd(table.concat(cmd.args, ' '))
-      vim.cmd("silent! lcd -")
-    else
-      local escaped_args = cmd:escape_args(shell)
+    local escaped_args = cmd:escape_args(shell)
 
-      local cmd_string = ""
+    local cmd_string = ""
 
-      -- @@Rework add actual Command objects to chansend_cmd_strs and only use
-      -- this part for adding and extra 'cd' command in front of each command.
-      -- This means we can implement fail_is_fatal
-      if execute_in_term then -- Going to use chansend
+    local vim_cmd_strs = {
+        string.format("silent! lcd %s", vim.fn.fnameescape(cmd.working_directory or ".")),
+        table.concat(cmd.args, ' '),
+        "silent! lcd -",
+    }
+
+    -- @@Rework add actual Command objects to chansend_cmd_strs and only use
+    -- this part for adding and extra 'cd' command in front of each command.
+    -- This means we can implement fail_is_fatal
+    if execute_in_term then -- Going to use chansend
+      if cmd.is_vim_command then
+        for _, str in ipairs(vim_cmd_strs) do
+          table.insert(chansend_cmd_strs, wrap_vim_cmd_for_shell(str))
+        end
+      else
         local cd_str = ""
         if cmd.working_directory then
           cd_str = string.format('cd %s', vim.fn.shellescape(cmd.working_directory))
         end
         cmd_string = cmd_join(cd_str, string.format("%s", table.concat(escaped_args, " ")), true)
         table.insert(chansend_cmd_strs, cmd_string)
-      else -- Going to use vim shell (:!)
+      end
+    else -- Going to use vim shell (:!)
+      if cmd.is_vim_command then
+        for _, str in ipairs(vim_cmd_strs) do
+          vim.cmd(str)
+        end
+      else
         vim.cmd(string.format("silent! lcd %s", vim.fn.fnameescape(cmd.working_directory or ".")))
         -- Need to escape ! for vim shell
         vim.cmd('!'..table.concat(escaped_args, " "):gsub('!', '\\!'))
