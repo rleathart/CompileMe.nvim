@@ -118,7 +118,10 @@ M.run = function ()
     local cmd = Command()
     cmd.args = { 'cmake', '-B', buildDir }
     cmd.working_directory = workingDirectory
-    task.commands = { cmd }
+    task.commands = { cmd , Command{
+      is_vim_command = true,
+      args = {'CompileMe', 'run'}
+    }}
   end
 
   return task
