@@ -6,7 +6,8 @@ augroup CompileMe
 augroup END
 
 function s:command_completion(A, L, P)
-  return luaeval("require('CompileMe').get_commands()")
+  let commands = luaeval("require('CompileMe').get_commands()")
+  return filter(commands, {_, val -> match(val, "^".a:A) >= 0})
 endfunction
 
 command! -complete=customlist,s:command_completion -nargs=? CompileMe lua require('CompileMe').command_wrapper("<args>")
