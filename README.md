@@ -3,6 +3,11 @@
 Ever wished that compiling/running your projects in Vim was as simple as
 pressing a button? This plugin does that.
 
+`:CompileMe` is the main command associated with this plugin. You can get
+options supported for your project with tab completion. For example, `:CompileMe
+compile` will build your project and `:CompileMe compile_and_run` will compile
+your project, and then run it.
+
 CompileMe will run commands in Vim's shell, or in a terminal buffer if one is
 visible on the screen.
 
@@ -13,6 +18,12 @@ Tested with
 - Bash
 
 <!-- Have some demo vids here -->
+<!-- Project goals: 
+  Provide a robust way of executing taks.  (Task:run())
+  Provide a small set of predefined detector/compiler combos (compilers/)
+  Provide a user friendly interface for creating new detectors/compilers as well
+  overriding or extending existing ones.
+-->
 
 # Requirements
 
