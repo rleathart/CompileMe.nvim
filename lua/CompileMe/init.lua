@@ -3,19 +3,15 @@ local M = {}
 -- @@Rework move this somewhere else
 M.last_terminal = nil
 
-local commands = {
-  "run",
-  "compile",
-  "compile_and_run"
-}
-
 M.command_wrapper = function (cmd)
-  if not cmd then
+  if cmd == "" then
     cmd = "compile"
   end
 
+  local commands = require('CompileMe.project').get_current().compiler.commands
+
   local cmd_is_registered = false
-  for _, command in ipairs(commands) do
+  for _, command in pairs(commands) do
     if cmd == command then
       cmd_is_registered = true
       break
@@ -28,14 +24,6 @@ M.command_wrapper = function (cmd)
   end
   local str = string.format("require('CompileMe.project').get_current().compiler.%s():run()", cmd)
   loadstring(str)()
-end
-
-M.get_commands = function ()
-  return commands
-end
-
-M.add_command = function (cmd)
-  table.insert(commands, cmd)
 end
 
 return M

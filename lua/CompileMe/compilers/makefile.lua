@@ -32,4 +32,10 @@ M.compile_and_run = function ()
   return M.run()
 end
 
+M.commands = {
+  "run",
+  "compile",
+  "compile_and_run"
+}
+
 return M

@@ -49,18 +49,6 @@ Project.init = function ()
   end
 end
 
-function Project:compile()
-  self.compiler.compile():run()
-end
-
-function Project:run()
-  self.compiler.run():run()
-end
-
-function Project:compile_and_run()
-  self.compiler.compile_and_run():run()
-end
-
 -- This is a table of functions that are called in order to determine the
 -- project type. This can be extended by the caller with a simple
 -- table.insert(). Functions should take a single argument, the buffer number
