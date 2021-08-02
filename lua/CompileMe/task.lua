@@ -1,9 +1,18 @@
 local class = require 'CompileMe.class'
 local CompileMe = require 'CompileMe'
 
-local buffer_is_visible = function (bufnr)
-  for _, winnr in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+local buffer_is_visible_in_tab = function (bufnr, tabnr)
+  for _, winnr in ipairs(vim.api.nvim_tabpage_list_wins(tabnr)) do
     if vim.api.nvim_win_get_buf(winnr) == bufnr then
+      return true
+    end
+  end
+  return false
+end
+
+local buffer_is_visible_in_any_tab = function (bufnr)
+  for _, tabnr in pairs(vim.api.nvim_list_tabpages()) do
+    if buffer_is_visible_in_tab(bufnr, tabnr) then
       return true
     end
   end
@@ -45,12 +54,24 @@ function Task:run()
       terminal_process_name = vim.api.nvim_get_proc(CompileMe.last_terminal.pid).name
     end
 
-    execute_in_term = buffer_is_visible(CompileMe.last_terminal.bufnr)
+    if CompileMe.get_term_use_current_tab() then
+      execute_in_term = buffer_is_visible_in_tab(CompileMe.last_terminal.bufnr, 0)
+    else
+      execute_in_term = buffer_is_visible_in_any_tab(CompileMe.last_terminal.bufnr)
+    end
+  end
+
+  if CompileMe.get_term_use_cmd_window() then
+    execute_in_term = true
   end
 
   local shell = vim.o.shell
   if execute_in_term then
     shell = terminal_process_name
+  end
+
+  if CompileMe.get_term_use_cmd_window() then
+    shell = "cmd.exe"
   end
 
   local cmd_join_success = shell:match('powershell') and '; if ($?) { %s }' or ' && %s'
@@ -129,7 +150,14 @@ function Task:run()
     for _, cmd in ipairs(chansend_cmd_strs) do
       cmd_str = cmd_join(cmd_str, cmd, true)
     end
-    vim.fn.chansend(CompileMe.last_terminal.id, cmd_str .. cr)
+    if CompileMe.get_term_use_cmd_window() then
+      if CompileMe.get_term_use_cmd_window_pause() then
+        cmd_str = cmd_join(cmd_str, "pause")
+      end
+      vim.fn.jobstart(string.format("start cmd.exe /C \"%s\"", cmd_str:gsub('"', '""')))
+    else
+      vim.fn.chansend(CompileMe.last_terminal.id, cmd_str .. cr)
+    end
   end
 end
 
