@@ -154,7 +154,8 @@ function Task:run()
       if CompileMe.get_term_use_cmd_window_pause() then
         cmd_str = cmd_join(cmd_str, "pause")
       end
-      vim.fn.jobstart(string.format("start cmd.exe /C \"%s\"", cmd_str:gsub('"', '""')))
+      local to_jobstart = string.format("start cmd.exe /C \"%s\"", cmd_str)
+      vim.fn.jobstart(to_jobstart)
     else
       vim.fn.chansend(CompileMe.last_terminal.id, cmd_str .. cr)
     end
