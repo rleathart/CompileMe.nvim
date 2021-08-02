@@ -31,6 +31,7 @@ end
 
 -- @@Rework move this somewhere else
 M.last_terminal = nil
+M.last_regular_buffer_id = nil
 
 M.command_wrapper = function (cmd)
   if cmd == "" then

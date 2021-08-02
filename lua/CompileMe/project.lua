@@ -5,6 +5,10 @@ local function dirname(x)
   return vim.fn.fnamemodify(x, ':h')
 end
 
+local function is_valid_buffer()
+  return #vim.api.nvim_buf_get_name(0) > 0 and vim.opt.buftype:get() == ""
+end
+
 -- Since we can't store lua funcrefs in a vim b: variable, we keep a map of
 -- bufnrs to project objects
 local project_table = {}
@@ -16,8 +20,15 @@ local Project = class(function (proj, opts)
   proj.compiler = opts.compiler or require('CompileMe.compilers.' .. proj.type:lower())
 end)
 
+-- Some buffers aren't supposed to have projects (like terminals and help pages)
+-- so we need to keep track of what the last actual project is.
+local current_project = nil
+
 Project.get_current = function ()
-  return project_table[vim.api.nvim_buf_get_number(0)]
+  if is_valid_buffer() then
+    current_project = project_table[vim.api.nvim_buf_get_number(0)]
+  end
+  return current_project
 end
 
 Project.set_current = function (proj)
@@ -37,6 +48,10 @@ Project.root_markers = {
 }
 
 Project.init = function ()
+  if not is_valid_buffer() then
+    return
+  end
+
   if not Project.get_current() then
     for _, v in ipairs(upfind({"nvimrc.lua", ".nvimrc.lua"}, {
       dir = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ':h')
