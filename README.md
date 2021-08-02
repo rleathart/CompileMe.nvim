@@ -11,6 +11,8 @@ your project, and then run it.
 CompileMe will run commands in Vim's shell, or in a terminal buffer if one is
 visible on the screen.
 
+![CMake demo](../assets/demos/CMakeDemo.gif?raw=true)
+
 Tested with
 - Powershell Core
 - Windows Powershell
