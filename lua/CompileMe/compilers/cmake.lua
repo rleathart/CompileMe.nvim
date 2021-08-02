@@ -154,10 +154,40 @@ M.compile_and_run = function ()
   return M.compile() + M.run()
 end
 
+local set_build_type = function(build_type)
+  local build_dir = vim.b.CMakeBuildDir or 'build'
+  return Task{
+    Command {
+      args = {'cmake', '-B', build_dir, '-DCMAKE_BUILD_TYPE=' .. build_type},
+      working_directory = dirname(M.get_top_level_cmakelists())
+    }
+  }
+end
+
+M.release = function ()
+  return set_build_type('Release')
+end
+
+M.debug = function ()
+  return set_build_type('Debug')
+end
+
+M.rel_with_deb_info = function ()
+  return set_build_type('RelWithDebInfo')
+end
+
+M.min_size_rel = function ()
+  return set_build_type('MinSizeRel')
+end
+
 M.commands = {
   "run",
   "compile",
-  "compile_and_run"
+  "compile_and_run",
+  "release",
+  "debug",
+  "rel_with_deb_info",
+  "min_size_rel"
 }
 
 return M
