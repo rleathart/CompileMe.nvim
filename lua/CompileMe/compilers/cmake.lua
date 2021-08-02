@@ -93,7 +93,8 @@ M.get_executables = function()
   exe_list = vim.fn.map(exe_list, function(_, v) return cmake_build_dir .. '/' .. v end)
   exe_list = vim.fn.filter(exe_list, function(_, v) return vim.fn.filereadable(v) end)
 
-  return exe_list
+  local dir_sep = vim.fn.has('win32') ~= 1 and '/' or '\\'
+  return vim.fn.map(exe_list, function(_, v) return v:gsub('/', dir_sep) end)
 end
 
 M.compile = function ()
