@@ -1,62 +1,76 @@
 local Task = require 'CompileMe.task'
 local Command = require 'CompileMe.command'
+local Project = require 'CompileMe.project'
 local upfind = require 'CompileMe.upfind'
-
-local M = {}
+local class = require 'CompileMe.class'
 
 local function dirname(x)
   return vim.fn.fnamemodify(x, ':h')
 end
 
-M.get_top_level_cmakelists = function ()
-  local lists = upfind('CMakeLists.txt')
-  return lists[#lists]
+-- This is a wrapper class so we can use getters and setters
+local CMakeCompiler = class(function ()
+end)
+
+-- Getters
+function CMakeCompiler:__index(index)
+  if index == "build_dir" then
+    if not Project.get_current().build_dir then
+      Project.get_current().build_dir = 'build'
+    end
+
+    return Project.get_current().build_dir
+  end
+
+  if index == "lists_path" then
+    local lists = upfind('CMakeLists.txt')
+    return lists[#lists]
+  end
+
+  if index == "api_dir" then
+    return dirname(self.lists_path) .. '/' .. self.build_dir .. '/.cmake/api/v1'
+  end
+
+  return rawget(self, index)
 end
 
-M.wait_for_api_reply = function ()
-  local cmakelists_path = M.get_top_level_cmakelists()
-  local cmake_build_dir = vim.b.CMakeBuildDir or 'build'
-  local cmake_api_dir = vim.fn.fnamemodify(
-  cmakelists_path, ':p:h') .. '/' .. cmake_build_dir .. '/.cmake/api/v1'
+-- Setters
+function CMakeCompiler:__newindex(index, value)
+  return rawset(self, index, value)
+end
 
-  while vim.fn.isdirectory(cmake_api_dir .. '/reply') ~= 1 do
+-- Project variables:
+--  build_dir: Name of the CMake build directory. Default: 'build'
+local cmake = CMakeCompiler()
+
+cmake.wait_for_api_reply = function ()
+  while vim.fn.isdirectory(cmake.api_dir .. '/reply') ~= 1 do
     vim.cmd('sleep 100m')
   end
 end
 
-M.cmake_write_query = function(query)
-  local cmakelists_path = M.get_top_level_cmakelists()
-  local cmake_build_dir = vim.b.CMakeBuildDir or 'build'
-  local cmake_api_dir = vim.fn.fnamemodify(
-  cmakelists_path, ':p:h') .. '/' .. cmake_build_dir .. '/.cmake/api/v1'
+cmake.write_query = function(query)
+  vim.fn.mkdir(cmake.api_dir .. '/query/client-nvim', 'p')
 
-  vim.fn.mkdir(cmake_api_dir .. '/query/client-nvim', 'p')
-
-  local file = io.open(cmake_api_dir .. '/query/client-nvim/query.json', 'w')
+  local file = io.open(cmake.api_dir .. '/query/client-nvim/query.json', 'w')
   file:write(vim.fn.json_encode(query))
   file:close()
 end
 
-M.get_executables = function()
-  M.cmake_write_query{
+cmake.get_executables = function()
+  cmake.write_query{
     requests = {{
       kind = 'codemodel',
       version = 2
     }}
   }
 
-  local cmakelists_path = M.get_top_level_cmakelists()
-  local cmake_build_dir = vim.b.CMakeBuildDir or 'build'
-
-  local cmake_api_dir = vim.fn.fnamemodify(
-  cmakelists_path, ':p:h') .. '/' .. cmake_build_dir .. '/.cmake/api/v1'
-
-  if vim.fn.isdirectory(cmake_api_dir .. '/reply') ~= 1 then -- Touch cmakelists
-    vim.fn.writefile(vim.fn.readfile(cmakelists_path), cmakelists_path)
+  if vim.fn.isdirectory(cmake.api_dir .. '/reply') ~= 1 then -- Touch cmakelists
+    vim.fn.writefile(vim.fn.readfile(cmake.lists_path), cmake.lists_path)
   end
 
   local exe_list = {}
-  local files_to_parse = vim.fn.glob(cmake_api_dir .. '/reply/target-*', 0, 1)
+  local files_to_parse = vim.fn.glob(cmake.api_dir .. '/reply/target-*', 0, 1)
   local has_executables = false
 
   for _, file in pairs(files_to_parse) do
@@ -90,40 +104,36 @@ M.get_executables = function()
 
   if not has_executables then return nil end
 
-  exe_list = vim.fn.map(exe_list, function(_, v) return cmake_build_dir .. '/' .. v end)
+  exe_list = vim.fn.map(exe_list, function(_, v) return cmake.build_dir .. '/' .. v end)
   exe_list = vim.fn.filter(exe_list, function(_, v) return vim.fn.filereadable(v) end)
 
   local dir_sep = vim.fn.has('win32') ~= 1 and '/' or '\\'
   return vim.fn.map(exe_list, function(_, v) return v:gsub('/', dir_sep) end)
 end
 
-M.compile = function ()
-  local cmakelists_path = M.get_top_level_cmakelists()
-  local build_dir = vim.b.CMakeBuildDir or 'build'
-  local working_directory = dirname(cmakelists_path)
-  local cmake = Command()
-  cmake.args = {'cmake', '--build', build_dir}
-  cmake.working_directory = working_directory
+cmake.compile = function ()
+  local build = Command {
+    args = {'cmake', '--build', cmake.build_dir},
+    working_directory = dirname(cmake.lists_path)
+  }
 
-  local configure
-  if vim.fn.isdirectory(working_directory .. '/' .. build_dir) ~= 1 then
-    configure = Command{
-      args = {'cmake', '-B', build_dir},
-      working_directory = working_directory
-    }
-  end
+  local configure = Command {
+    args = {'cmake', '-B', cmake.build_dir},
+    working_directory = dirname(cmake.lists_path)
 
-  if configure then
-    return Task{configure, cmake}
+  }
+
+  if vim.fn.isdirectory(dirname(cmake.lists_path) .. '/' .. cmake.build_dir) ~= 1 then
+    return Task{configure, build}
   else
-    return Task{cmake}
+    return Task{build}
   end
 end
 
-M.run = function ()
-  local working_directory = dirname(M.get_top_level_cmakelists())
+cmake.run = function ()
+  local working_directory = dirname(cmake.lists_path)
 
-  local executables = M.get_executables()
+  local executables = cmake.get_executables()
 
   local task = Task()
 
@@ -147,40 +157,39 @@ M.run = function ()
     }
   end
 
-return task
+  return task
 end
 
-M.compile_and_run = function ()
-  return M.compile() + M.run()
+cmake.compile_and_run = function ()
+  return cmake.compile() + cmake.run()
 end
 
 local set_build_type = function(build_type)
-  local build_dir = vim.b.CMakeBuildDir or 'build'
   return Task{
     Command {
-      args = {'cmake', '-B', build_dir, '-DCMAKE_BUILD_TYPE=' .. build_type},
-      working_directory = dirname(M.get_top_level_cmakelists())
+      args = {'cmake', '-B', cmake.build_dir, '-DCMAKE_BUILD_TYPE=' .. build_type},
+      working_directory = dirname(cmake.lists_path)
     }
   }
 end
 
-M.release = function ()
+cmake.release = function ()
   return set_build_type('Release')
 end
 
-M.debug = function ()
+cmake.debug = function ()
   return set_build_type('Debug')
 end
 
-M.rel_with_deb_info = function ()
+cmake.rel_with_deb_info = function ()
   return set_build_type('RelWithDebInfo')
 end
 
-M.min_size_rel = function ()
+cmake.min_size_rel = function ()
   return set_build_type('MinSizeRel')
 end
 
-M.commands = {
+cmake.commands = {
   "run",
   "compile",
   "compile_and_run",
@@ -190,4 +199,4 @@ M.commands = {
   "min_size_rel"
 }
 
-return M
+return cmake
