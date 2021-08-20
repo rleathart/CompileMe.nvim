@@ -33,12 +33,24 @@ end
 M.last_terminal = nil
 M.last_regular_buffer_id = nil
 
+M.get_commands = function ()
+  local commands = {}
+
+  local proj = require('CompileMe.project').get_current()
+
+  for k, _ in pairs(proj and proj.compiler or {}) do
+    table.insert(commands, k)
+  end
+
+  return commands;
+end
+
 M.command_wrapper = function (cmd)
   if cmd == "" then
     cmd = "compile"
   end
 
-  local commands = require('CompileMe.project').get_current().compiler.commands
+  local commands = M.get_commands()
 
   local cmd_is_registered = false
   for _, command in pairs(commands) do

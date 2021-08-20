@@ -25,10 +25,4 @@ M.compile_and_run = function ()
   }
 end
 
-M.commands = {
-  "run",
-  "compile",
-  "compile_and_run"
-}
-
 return M

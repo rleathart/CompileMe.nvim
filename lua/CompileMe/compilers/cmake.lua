@@ -44,12 +44,18 @@ end
 local cmake = CMakeCompiler()
 
 cmake.wait_for_api_reply = function ()
+  local timeout = 2 -- Wait this many seconds before timing out
+  local start = os.time()
   while vim.fn.isdirectory(cmake.api_dir .. '/reply') ~= 1 do
     vim.cmd('sleep 100m')
+    if os.time() >= start + timeout then
+      error('Timeout waiting for cmake api reply')
+      break
+    end
   end
 end
 
-cmake.write_query = function(query)
+local write_query = function(query)
   vim.fn.mkdir(cmake.api_dir .. '/query/client-nvim', 'p')
 
   local file = io.open(cmake.api_dir .. '/query/client-nvim/query.json', 'w')
@@ -57,8 +63,8 @@ cmake.write_query = function(query)
   file:close()
 end
 
-cmake.get_executables = function()
-  cmake.write_query{
+local get_executables = function()
+  write_query{
     requests = {{
       kind = 'codemodel',
       version = 2
@@ -133,7 +139,7 @@ end
 cmake.run = function ()
   local working_directory = dirname(cmake.lists_path)
 
-  local executables = cmake.get_executables()
+  local executables = get_executables()
 
   local task = Task()
 
@@ -188,15 +194,5 @@ end
 cmake.min_size_rel = function ()
   return set_build_type('MinSizeRel')
 end
-
-cmake.commands = {
-  "run",
-  "compile",
-  "compile_and_run",
-  "release",
-  "debug",
-  "rel_with_deb_info",
-  "min_size_rel"
-}
 
 return cmake
