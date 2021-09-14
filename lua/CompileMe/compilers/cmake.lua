@@ -170,6 +170,15 @@ cmake.compile_and_run = function ()
   return cmake.compile() + cmake.run()
 end
 
+cmake.test = function ()
+  return Task {
+    Command {
+      args = {'cmake', '--build', cmake.build_dir, '--target', 'test'},
+      working_directory = dirname(cmake.lists_path)
+    }
+  }
+end
+
 local set_build_type = function(build_type)
   return Task{
     Command {
